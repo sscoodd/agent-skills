@@ -1,0 +1,6 @@
+# name:ip:model:group
+# name — hostname КАК В OBSERVIUM (по нему связываются syslog, git-история
+#        и вкладка Config), ip — management-адрес, model — модель oxidized.
+# Скопировать в data/router.db, права 0600.
+core-sw1:10.255.0.11:ios:core
+core-sw2:10.255.0.12:ios:core

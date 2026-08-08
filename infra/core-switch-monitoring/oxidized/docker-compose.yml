@@ -1,0 +1,28 @@
+# Oxidized рядом с Observium (обычно на том же хосте).
+# Данные (конфиг, git-репозиторий с конфигами свичей, хуки) — в ./data,
+# монтируется в домашний каталог oxidized внутри контейнера.
+#
+#   mkdir -p data/hooks && cp config data/ && cp hooks/notify-diff.sh data/hooks/
+#   cp router.db.example data/router.db   # и заполнить реальными адресами
+#   chmod 600 data/config data/router.db  # в файлах учётные данные
+#   docker compose up -d && docker compose logs -f
+#
+# ВАЖНО: каталог data/ содержит пароли и конфиги сети — держать только
+# на сервере мониторинга, в git этого репозитория не коммитить.
+
+services:
+  oxidized:
+    image: oxidized/oxidized:latest
+    container_name: oxidized
+    restart: unless-stopped
+    ports:
+      # REST API + web UI. Наружу не выставлять: только localhost,
+      # доступ извне — через reverse proxy с аутентификацией.
+      - "127.0.0.1:8888:8888"
+    environment:
+      CONFIG_RELOAD_INTERVAL: "600"   # перечитывать router.db каждые 10 мин
+      # Для telegram-уведомлений из хука (см. hooks/notify-diff.sh):
+      # TG_TOKEN: "<bot token>"
+      # TG_CHAT:  "<chat id>"
+    volumes:
+      - ./data:/home/oxidized/.config/oxidized

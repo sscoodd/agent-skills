@@ -1,0 +1,73 @@
+---
+# Oxidized: снятие конфигураций свичей ядра в git.
+# Лежит как data/config (см. docker-compose.yml). YAML, права 0600.
+
+# Учётка для снятия конфигов (одна на все устройства ядра; если
+# разные — колонки username/password в router.db, см. пример).
+username: oxidized
+password: "<CHANGE_ME>"
+model: ios            # модель по умолчанию; переопределяется в router.db
+interval: 3600        # раз в час; мгновенный опрос — через REST /node/next/<name>
+timeout: 25
+retries: 2
+threads: 4
+use_syslog: false
+rest: 0.0.0.0:8888    # внутри контейнера; наружу проброшен только на 127.0.0.1
+
+input:
+  default: ssh
+  ssh:
+    secure: false     # после первого прогона можно включить проверку host keys
+
+output:
+  default: git
+  git:
+    user: oxidized
+    email: oxidized@<OBSERVIUM_FQDN>
+    repo: "/home/oxidized/.config/oxidized/configs.git"
+
+source:
+  default: csv
+  csv:
+    file: "/home/oxidized/.config/oxidized/router.db"
+    delimiter: !ruby/regexp /:/
+    map:
+      name: 0
+      ip: 1
+      model: 2
+      group: 3
+    # Пер-устройственные учётки при необходимости:
+    #   map: { name: 0, ip: 1, model: 2, group: 3, username: 4, password: 5 }
+    #   vars_map: { enable: 6 }
+
+# Соответствие вендоров моделям oxidized (полный список — каталог
+# lib/oxidized/model/ в репозитории oxidized):
+#   Cisco IOS/IOS-XE -> ios      Cisco NX-OS -> nxos
+#   Huawei VRP       -> vrp      Juniper     -> junos
+#   Eltex MES        -> eltex    MikroTik    -> routeros
+
+hooks:
+  # Уведомление с диффом после каждого зафиксированного изменения.
+  notify_diff:
+    type: exec
+    events: [post_store]
+    cmd: '/home/oxidized/.config/oxidized/hooks/notify-diff.sh'
+    async: true
+    timeout: 120
+
+  # Сигнал, если конфиг снять не удалось (учётка, ACL, устройство) —
+  # мониторинг самого мониторинга.
+  notify_fail:
+    type: exec
+    events: [node_fail]
+    cmd: '/home/oxidized/.config/oxidized/hooks/notify-diff.sh'
+    async: true
+    timeout: 60
+
+  # Push истории в центральный git (приватный репозиторий в вашем
+  # Gitea). Деплой-ключ только на этот репозиторий, права write.
+  # push_remote:
+  #   type: githubrepo
+  #   events: [post_store]
+  #   remote_repo: "git@<GIT_HOST>:<org>/switch-configs.git"
+  #   privatekey: "/home/oxidized/.config/oxidized/ssh/id_ed25519"
