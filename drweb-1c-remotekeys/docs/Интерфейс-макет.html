@@ -128,6 +128,8 @@
   input[readonly] { cursor: default; }
   input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; border-color: var(--focus); }
   .hint { font: 12px var(--mono); color: var(--ink-muted); }
+  select.fmt { font: 13.5px var(--sans); color: var(--ink); background: var(--field); border: 1px solid var(--field-border); border-radius: 6px; padding: 5px 8px; }
+  select.fmt:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 
   .flags { display: flex; flex-wrap: wrap; gap: 16px 22px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); }
   .chk { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
@@ -250,7 +252,13 @@
         </div>
         <div class="flags">
           <label class="chk"><input type="checkbox"> Тестовый режим <span class="p">testing=yes</span></label>
-          <label class="chk"><input type="checkbox" checked> Ответ в XML <span class="p">format=xml</span></label>
+          <label class="chk">Формат ответа
+            <select class="fmt" aria-label="Формат ответа">
+              <option>xml</option><option>json</option><option>mime</option>
+            </select>
+            <span class="p">format=…</span>
+          </label>
+          <label class="chk"><input type="checkbox"> Коды для продавцов <span class="p">satcodes=yes</span></label>
         </div>
       </fieldset>
 
@@ -353,17 +361,16 @@
         <div class="console-head">Результат <span class="badge ok">HTTP 200</span></div>
         <pre>Генерация серийных номеров
 HTTP: 200
+Статус: ok
 Серийные номера (1):
-  <span class="sn">XXXX-XXXX-XXXX-XXXX</span>
-Атрибуты:
-  valid = yes
-  blocked = no
+  <span class="sn">4D4D-ED3S-RUAN-VFDU</span>   [satcode: ABCD1234]
 ----- Тело ответа -----
-Serial(s) has been generated.
-Home products (Dr.Web Security Space)
-Workstations: 3
-Period: 24m
-XXXX-XXXX-XXXX-XXXX</pre>
+&lt;response&gt;
+  &lt;info&gt;&lt;status&gt;ok&lt;/status&gt;&lt;/info&gt;
+  &lt;serials&gt;
+    &lt;item satcode="ABCD1234"&gt;4D4D-ED3S-RUAN-VFDU&lt;/item&gt;
+  &lt;/serials&gt;
+&lt;/response&gt;</pre>
       </div>
     </div>
   </section>
@@ -417,7 +424,7 @@ XXXX-XXXX-XXXX-XXXX</pre>
       <h3>Обработка ответа и ошибок</h3>
       <div class="body">
         <ul class="tight">
-          <li><b>Разбор ответа.</b> Понимает и MIME <code>multipart/mixed</code> (режим по умолчанию), и XML (<code>format=xml</code>). Серийные номера извлекаются из тела скользящим окном по шаблону <code>XXXX-XXXX-XXXX-XXXX</code> — независимо от формата.</li>
+          <li><b>Разбор ответа.</b> Структурно разбирает XML (<code>&lt;response&gt;&lt;serials&gt;&lt;item satcode="…"&gt;</code>) и JSON (<code>format=xml</code> / <code>format=json</code>); для MIME <code>multipart/mixed</code> и нераспознанного формата — извлечение серийников скользящим окном по шаблону <code>XXXX-XXXX-XXXX-XXXX</code>. Коды продавцов и статус <code>ok</code> попадают в результат.</li>
           <li><b>Коды ошибок — с учётом операции.</b> Один HTTP-код значит разное (например <code>412</code>, <code>403</code>, <code>401</code>), поэтому расшифровка зависит от действия. Плюс кастомные коды <code>590–634</code>. В результат добавляется фрагмент тела ответа сервера.</li>
           <li><b>Сбой соединения.</b> Сеть/таймаут/TLS → код <code>-1</code> и текст исключения, форма не «падает».</li>
           <li><b>Атрибуты.</b> Для «Информации» и XML-ответа поля <code>&lt;serialattrs&gt;</code> выводятся списком; парсер толерантен к отсутствующим полям.</li>
