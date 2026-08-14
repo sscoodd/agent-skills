@@ -1,0 +1,467 @@
+<title>Dr.Web RemoteKeys</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  /* ---------- Tokens: light is the bare :root ---------- */
+  :root {
+    --ground: #e9edf1;
+    --surface: #ffffff;
+    --surface-2: #f3f6f9;
+    --ink: #1a2431;
+    --ink-muted: #5a6775;
+    --border: #ccd5de;
+    --border-strong: #b7c2cd;
+    --accent: #17703c;
+    --accent-ink: #ffffff;
+    --accent-hover: #125730;
+    --field: #ffffff;
+    --field-border: #c2ccd6;
+    --focus: #17703c;
+    --danger: #c0392b;
+    --info: #2f6f9f;
+    --shadow: 0 1px 2px rgba(20,30,45,.06), 0 8px 26px rgba(20,30,45,.10);
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #10151b;
+      --surface: #1a222b;
+      --surface-2: #212c36;
+      --ink: #e7edf3;
+      --ink-muted: #98a5b2;
+      --border: #2e3a45;
+      --border-strong: #3a4753;
+      --accent: #35b96c;
+      --accent-ink: #08150d;
+      --accent-hover: #47c97c;
+      --field: #131a21;
+      --field-border: #35434f;
+      --focus: #35b96c;
+      --danger: #e2705f;
+      --info: #6fb0dd;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #10151b;
+    --surface: #1a222b;
+    --surface-2: #212c36;
+    --ink: #e7edf3;
+    --ink-muted: #98a5b2;
+    --border: #2e3a45;
+    --border-strong: #3a4753;
+    --accent: #35b96c;
+    --accent-ink: #08150d;
+    --accent-hover: #47c97c;
+    --field: #131a21;
+    --field-border: #35434f;
+    --focus: #35b96c;
+    --danger: #e2705f;
+    --info: #6fb0dd;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.5);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 920px; margin: 0 auto; padding: 32px 20px 64px; }
+
+  /* ---------- Masthead ---------- */
+  .masthead { margin-bottom: 26px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .glyph {
+    width: 34px; height: 34px; border-radius: 8px;
+    display: grid; place-items: center;
+    background: var(--accent); color: var(--accent-ink);
+    font-size: 19px; flex: none;
+  }
+  .brand h1 { font-size: 22px; margin: 0; letter-spacing: -.01em; font-weight: 680; }
+  .brand .tag {
+    font: 600 11px/1 var(--mono); letter-spacing: .04em;
+    color: var(--ink-muted); border: 1px solid var(--border);
+    padding: 4px 7px; border-radius: 999px; margin-left: 2px;
+  }
+  .sub { color: var(--ink-muted); max-width: 68ch; margin: 12px 0 0; font-size: 14.5px; }
+
+  /* ---------- App window ---------- */
+  .window {
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .titlebar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
+  .dot.r { background: #e05c50; } .dot.a { background: #e5aa3c; } .dot.g { background: #46b56b; }
+  .wtitle { font-size: 13px; color: var(--ink-muted); margin-left: 6px; font-weight: 600; }
+  .formbody { padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+
+  /* ---------- Groups & field rows ---------- */
+  .group { border: 1px solid var(--border); border-radius: 9px; padding: 14px 16px 16px; margin: 0; min-width: 0; }
+  .group > legend {
+    font: 600 11px/1 var(--sans); text-transform: uppercase; letter-spacing: .07em;
+    color: var(--ink-muted); padding: 0 6px;
+  }
+  .rows { display: flex; flex-direction: column; gap: 9px; }
+  .frow { display: grid; grid-template-columns: minmax(0, 168px) 1fr; align-items: center; gap: 12px; }
+  .frow > label { font-size: 13.5px; color: var(--ink); }
+  .frow > label .req { color: var(--danger); margin-left: 2px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 9px 22px; }
+
+  input[type="text"], input[type="password"], .fakeinput {
+    width: 100%; font: 14px var(--sans); color: var(--ink);
+    background: var(--field); border: 1px solid var(--field-border);
+    border-radius: 6px; padding: 7px 9px; min-width: 0;
+  }
+  input[readonly] { cursor: default; }
+  input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; border-color: var(--focus); }
+  .hint { font: 12px var(--mono); color: var(--ink-muted); }
+
+  .flags { display: flex; flex-wrap: wrap; gap: 16px 22px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); }
+  .chk { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+  .chk input { width: 16px; height: 16px; accent-color: var(--accent); }
+  .chk .p { font: 12px var(--mono); color: var(--ink-muted); }
+
+  /* ---------- Tabs ---------- */
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); }
+  .tab {
+    appearance: none; border: 1px solid transparent; border-bottom: none;
+    background: transparent; color: var(--ink-muted);
+    font: 600 13.5px var(--sans); padding: 9px 16px; cursor: pointer;
+    border-radius: 8px 8px 0 0; position: relative; top: 1px;
+  }
+  .tab[aria-selected="true"] {
+    color: var(--ink); background: var(--surface);
+    border-color: var(--border); border-bottom: 1px solid var(--surface);
+  }
+  .tab:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+  .panel { display: flex; flex-direction: column; gap: 14px; padding-top: 6px; }
+  .panel[hidden] { display: none; }
+
+  /* ---------- Additional-params table ---------- */
+  .tablewrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
+  table.params { border-collapse: collapse; width: 100%; font-size: 13px; }
+  table.params th, table.params td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+  table.params thead th { background: var(--surface-2); font: 600 11px var(--sans); text-transform: uppercase; letter-spacing: .06em; color: var(--ink-muted); }
+  table.params tbody tr:last-child td { border-bottom: none; }
+  table.params td.k, table.params td.v { font-family: var(--mono); color: var(--accent); }
+  table.params td.v { color: var(--ink); }
+  .tcap { font-size: 12.5px; color: var(--ink-muted); margin: 2px 2px 0; }
+
+  /* ---------- Command bar ---------- */
+  .cmdbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .btn {
+    appearance: none; font: 600 13.5px var(--sans); cursor: pointer;
+    padding: 9px 16px; border-radius: 7px; border: 1px solid var(--border-strong);
+    background: var(--surface-2); color: var(--ink);
+  }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+  .btn.primary:hover { background: var(--accent-hover); }
+  .btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  /* ---------- Result console ---------- */
+  .console { border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
+  .console-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 13px; background: var(--surface-2); border-bottom: 1px solid var(--border);
+    font: 600 11px var(--sans); text-transform: uppercase; letter-spacing: .07em; color: var(--ink-muted);
+  }
+  .badge { font: 600 11px var(--mono); letter-spacing: 0; text-transform: none; padding: 2px 7px; border-radius: 999px; }
+  .badge.ok { color: var(--accent); border: 1px solid var(--accent); }
+  .console pre { margin: 0; padding: 13px 15px; font: 12.5px/1.7 var(--mono); color: var(--ink); overflow-x: auto; background: var(--surface); }
+  .console .sn { color: var(--accent); font-weight: 700; }
+
+  /* ---------- Spec section ---------- */
+  .spec { margin-top: 40px; }
+  .spec h2 { font-size: 17px; letter-spacing: -.01em; margin: 0 0 4px; }
+  .spec .lead { color: var(--ink-muted); font-size: 14px; margin: 0 0 20px; }
+  .opcards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .opcard { border: 1px solid var(--border); border-radius: 10px; padding: 14px; background: var(--surface); display: flex; flex-direction: column; gap: 7px; }
+  .opcard .op-h { display: flex; align-items: center; gap: 8px; }
+  .opcard .op-h b { font-size: 14px; }
+  .method { font: 600 10.5px var(--mono); padding: 2px 6px; border-radius: 5px; background: var(--surface-2); border: 1px solid var(--border); color: var(--ink-muted); }
+  .opcard .ep { font: 12px var(--mono); color: var(--accent); word-break: break-all; }
+  .opcard p { margin: 0; font-size: 13px; color: var(--ink-muted); }
+
+  .block { margin-top: 22px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); overflow: hidden; }
+  .block > h3 { margin: 0; padding: 12px 16px; font-size: 13.5px; background: var(--surface-2); border-bottom: 1px solid var(--border); }
+  .block > .body { padding: 14px 16px; }
+  table.map { border-collapse: collapse; width: 100%; font-size: 13px; }
+  table.map th, table.map td { text-align: left; padding: 7px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.map thead th { font: 600 11px var(--sans); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-muted); }
+  table.map tbody tr:last-child td { border-bottom: none; }
+  table.map td.p { font-family: var(--mono); color: var(--accent); white-space: nowrap; }
+  ul.tight { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 7px; font-size: 13.5px; }
+  ul.tight code, p code, td code { font: 12.5px var(--mono); background: var(--surface-2); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+  .foot { margin-top: 30px; font-size: 12.5px; color: var(--ink-muted); border-top: 1px solid var(--border); padding-top: 16px; }
+
+  @media (max-width: 680px) {
+    .frow { grid-template-columns: 1fr; gap: 5px; }
+    .grid2 { grid-template-columns: 1fr; }
+    .opcards { grid-template-columns: 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="page">
+  <header class="masthead">
+    <div class="brand">
+      <span class="glyph" aria-hidden="true">🕷</span>
+      <h1>Dr.Web RemoteKeys</h1>
+      <span class="tag">1С · внешняя обработка</span>
+    </div>
+    <p class="sub">Макет интерфейса и описание функционала планируемой внешней обработки для 1С:Предприятие&nbsp;8.3 (Бухгалтерия предприятия&nbsp;3.0). Партнёрский интерфейс Dr.Web: генерация, блокировка и проверка лицензионных серийных номеров.</p>
+  </header>
+
+  <!-- ============ FORM MOCKUP ============ -->
+  <section class="window" aria-label="Макет формы обработки">
+    <div class="titlebar">
+      <span class="dot r" aria-hidden="true"></span>
+      <span class="dot a" aria-hidden="true"></span>
+      <span class="dot g" aria-hidden="true"></span>
+      <span class="wtitle">Dr.Web: генерация лицензий</span>
+    </div>
+
+    <div class="formbody">
+      <!-- Credentials, shared across all operations -->
+      <fieldset class="group">
+        <legend>Учётные данные партнёра</legend>
+        <div class="rows">
+          <div class="frow">
+            <label for="f-login">Логин<span class="req" title="обязательно">*</span></label>
+            <input id="f-login" type="text" readonly value="partner_login">
+          </div>
+          <div class="frow">
+            <label for="f-pwd">Пароль<span class="req" title="обязательно">*</span></label>
+            <input id="f-pwd" type="password" readonly value="secretsecret">
+          </div>
+        </div>
+        <div class="flags">
+          <label class="chk"><input type="checkbox"> Тестовый режим <span class="p">testing=yes</span></label>
+          <label class="chk"><input type="checkbox" checked> Ответ в XML <span class="p">format=xml</span></label>
+        </div>
+      </fieldset>
+
+      <!-- Operation tabs -->
+      <div>
+        <div class="tabs" role="tablist" aria-label="Операция">
+          <button class="tab" role="tab" id="t-gen" aria-selected="true" aria-controls="p-gen">Генерация</button>
+          <button class="tab" role="tab" id="t-block" aria-selected="false" aria-controls="p-block">Блокировка</button>
+          <button class="tab" role="tab" id="t-info" aria-selected="false" aria-controls="p-info">Информация</button>
+        </div>
+
+        <!-- GENERATION -->
+        <div class="panel" id="p-gen" role="tabpanel" aria-labelledby="t-gen">
+          <fieldset class="group">
+            <legend>Параметры лицензии</legend>
+            <div class="rows">
+              <div class="frow">
+                <label for="g-prod">Продукт<span class="req">*</span></label>
+                <input id="g-prod" type="text" readonly value="46">
+              </div>
+              <div class="frow">
+                <label for="g-per">Период<span class="req">*</span></label>
+                <input id="g-per" type="text" readonly value="24m">
+              </div>
+              <div class="frow">
+                <label for="g-disc">Скидка</label>
+                <input id="g-disc" type="text" readonly value="">
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset class="group">
+            <legend>Защищаемые объекты</legend>
+            <div class="grid2">
+              <div class="frow"><label for="g-w">Компьютеры</label><input id="g-w" type="text" readonly value="3"></div>
+              <div class="frow"><label for="g-s">Серверы</label><input id="g-s" type="text" readonly value="0"></div>
+              <div class="frow"><label for="g-m">Почтовые ящики</label><input id="g-m" type="text" readonly value="0"></div>
+              <div class="frow"><label for="g-t">Трафик</label><input id="g-t" type="text" readonly value="0"></div>
+              <div class="frow"><label for="g-u">Пользователи</label><input id="g-u" type="text" readonly value="0"></div>
+            </div>
+          </fieldset>
+
+          <fieldset class="group">
+            <legend>Дополнительно</legend>
+            <div class="rows">
+              <div class="frow"><label for="g-c">Комментарий</label><input id="g-c" type="text" readonly value=""></div>
+              <div class="frow"><label for="g-oid">order_item_id</label><input id="g-oid" type="text" readonly value=""></div>
+              <div class="frow"><label for="g-ren">Продлить серийный</label><input id="g-ren" type="text" readonly value=""></div>
+            </div>
+          </fieldset>
+
+          <div>
+            <div class="tablewrap">
+              <table class="params">
+                <thead><tr><th>Имя параметра</th><th>Значение</th></tr></thead>
+                <tbody>
+                  <tr><td class="k">ui_inn</td><td class="v">7714533600</td></tr>
+                  <tr><td class="k">ui_cntry</td><td class="v">RU</td></tr>
+                  <tr><td class="k">for_partner</td><td class="v">avt_12345</td></tr>
+                  <tr><td class="k">keytype</td><td class="v">…</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="tcap">Дополнительные параметры — расширяемая таблица «Имя → Значение»: бизнес-анкета (<span class="hint">ui_*</span>), цепочка поставки (<span class="hint">for_partner</span>, <span class="hint">supplier</span>) и любой будущий параметр без правки кода.</p>
+          </div>
+
+          <div class="cmdbar">
+            <button class="btn primary" type="button">Сгенерировать</button>
+          </div>
+        </div>
+
+        <!-- BLOCK -->
+        <div class="panel" id="p-block" role="tabpanel" aria-labelledby="t-block" hidden>
+          <fieldset class="group">
+            <legend>Блокировка серийного номера</legend>
+            <div class="rows">
+              <div class="frow"><label for="b-sn">Серийный номер<span class="req">*</span></label><input id="b-sn" type="text" readonly value="XXXX-XXXX-XXXX-XXXX"></div>
+              <div class="frow"><label for="b-r">Причина</label><input id="b-r" type="text" readonly value="Ошибочный заказ"></div>
+            </div>
+            <p class="tcap" style="margin-top:12px">Блокировать серийный номер можно, пока по нему не получен ключ. Если ключ уже получен — блокировать нужно сам ключ.</p>
+          </fieldset>
+          <div class="cmdbar"><button class="btn primary" type="button">Заблокировать</button></div>
+        </div>
+
+        <!-- INFO -->
+        <div class="panel" id="p-info" role="tabpanel" aria-labelledby="t-info" hidden>
+          <fieldset class="group">
+            <legend>Информация по серийному номеру</legend>
+            <div class="rows">
+              <div class="frow"><label for="i-sn">Серийный номер<span class="req">*</span></label><input id="i-sn" type="text" readonly value="XXXX-XXXX-XXXX-XXXX"></div>
+            </div>
+            <p class="tcap" style="margin-top:12px">Запрос к <span class="hint">gsi.drweb.com</span> без авторизации. Возвращает атрибуты лицензии (срок, продукт, скидка, статус, признаки продления и блокировки).</p>
+          </fieldset>
+          <div class="cmdbar"><button class="btn primary" type="button">Информация по номеру</button></div>
+        </div>
+      </div>
+
+      <!-- Result console -->
+      <div class="console">
+        <div class="console-head">Результат <span class="badge ok">HTTP 200</span></div>
+        <pre>Генерация серийных номеров
+HTTP: 200
+Серийные номера (1):
+  <span class="sn">XXXX-XXXX-XXXX-XXXX</span>
+Атрибуты:
+  valid = yes
+  blocked = no
+----- Тело ответа -----
+Serial(s) has been generated.
+Home products (Dr.Web Security Space)
+Workstations: 3
+Period: 24m
+XXXX-XXXX-XXXX-XXXX</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FUNCTIONAL SPEC ============ -->
+  <section class="spec">
+    <h2>Функционал</h2>
+    <p class="lead">Три операции над одной формой. Учётные данные и флаги — общие; операция выбирается вкладкой.</p>
+
+    <div class="opcards">
+      <div class="opcard">
+        <div class="op-h"><b>Генерация</b><span class="method">POST</span></div>
+        <div class="ep">f2.drweb.com/remotekeys/</div>
+        <p><code>act=serial</code> — выдаёт серийные номера по продукту, периоду, скидке и количеству объектов. Серийники — в результате и на e-mail дилера.</p>
+      </div>
+      <div class="opcard">
+        <div class="op-h"><b>Блокировка</b><span class="method">POST</span></div>
+        <div class="ep">f2.drweb.com/remotekeys/</div>
+        <p><code>act=blockserial</code> — блокирует серийный номер с указанием причины. Успех — HTTP&nbsp;200.</p>
+      </div>
+      <div class="opcard">
+        <div class="op-h"><b>Информация</b><span class="method">GET</span></div>
+        <div class="ep">gsi.drweb.com/register/getserialinfo/</div>
+        <p>Возвращает XML&nbsp;<code>&lt;serialattrs&gt;</code> с атрибутами лицензии. Авторизация не требуется.</p>
+      </div>
+    </div>
+
+    <div class="block">
+      <h3>Поля формы → параметры запроса</h3>
+      <div class="body" style="padding:0">
+        <div class="tablewrap" style="border:none;border-radius:0">
+          <table class="map">
+            <thead><tr><th>Поле формы</th><th>Параметр</th><th>Назначение</th></tr></thead>
+            <tbody>
+              <tr><td>Логин / Пароль</td><td class="p">login / pwd</td><td>Учётные данные партнёрского портала. Пароль — только POST-телом.</td></tr>
+              <tr><td>Продукт</td><td class="p">product</td><td>Идентификатор продукта.</td></tr>
+              <tr><td>Период</td><td class="p">period</td><td>Срок лицензии: <code>1m</code>, <code>12m</code>, <code>24m</code>…</td></tr>
+              <tr><td>Скидка</td><td class="p">discount</td><td>Идентификатор скидки (скидки 1/16 — продление).</td></tr>
+              <tr><td>Компьютеры</td><td class="p">computers</td><td>Рабочие станции (тип «w»).</td></tr>
+              <tr><td>Серверы · Ящики · Трафик · Пользователи</td><td class="p">servers · mailboxes · traffic · users</td><td>Количество объектов по типу продукта. <code>traffic</code> и <code>mailboxes</code> — взаимоисключающи.</td></tr>
+              <tr><td>Продлить серийный</td><td class="p">renewserial</td><td>Серийный номер, который продлевается.</td></tr>
+              <tr><td>order_item_id</td><td class="p">order_item_id</td><td>Идемпотентный ключ для безопасного перезапроса.</td></tr>
+              <tr><td>Таблица доп. параметров</td><td class="p">ui_* · for_partner · supplier · keytype</td><td>Бизнес-анкета, цепочка поставки и любой прочий параметр.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="block">
+      <h3>Обработка ответа и ошибок</h3>
+      <div class="body">
+        <ul class="tight">
+          <li><b>Разбор ответа.</b> Понимает и MIME <code>multipart/mixed</code> (режим по умолчанию), и XML (<code>format=xml</code>). Серийные номера извлекаются из тела скользящим окном по шаблону <code>XXXX-XXXX-XXXX-XXXX</code> — независимо от формата.</li>
+          <li><b>Коды ошибок — с учётом операции.</b> Один HTTP-код значит разное (например <code>412</code>, <code>403</code>, <code>401</code>), поэтому расшифровка зависит от действия. Плюс кастомные коды <code>590–634</code>. В результат добавляется фрагмент тела ответа сервера.</li>
+          <li><b>Сбой соединения.</b> Сеть/таймаут/TLS → код <code>-1</code> и текст исключения, форма не «падает».</li>
+          <li><b>Атрибуты.</b> Для «Информации» и XML-ответа поля <code>&lt;serialattrs&gt;</code> выводятся списком; парсер толерантен к отсутствующим полям.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="block">
+      <h3>Безопасность и валидация</h3>
+      <div class="body">
+        <ul class="tight">
+          <li><b>Пароль</b> — режим пароля на поле, передаётся POST-телом (не в query, не в журналах прокси), не выводится в результат и не логируется.</li>
+          <li><b>Тестовый режим</b> (<code>testing=yes</code>) — для отладки: выданные номера не сохраняются на стороне Dr.Web.</li>
+          <li><b>Проверки перед отправкой</b> — логин/пароль обязательны везде; продукт и период — для генерации; серийный номер — для блокировки и информации.</li>
+          <li><b>Сеть — на сервере</b> (управляемое приложение); при работе через прокси задаётся <code>ИнтернетПрокси</code>.</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="foot">Это макет для согласования интерфейса до сборки в EDT. Поля и таблица соответствуют реквизитам формы 1:1 (см. <code>docs/СборкаОбработки.md</code>). Вкладки — способ подачи; в 1С это либо страницы формы, либо группы. Значения в полях — примеры.</p>
+  </section>
+</div>
+
+<script>
+  (function () {
+    var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab'));
+    var panels = { 'p-gen': 0, 'p-block': 0, 'p-info': 0 };
+    function select(tab) {
+      tabs.forEach(function (t) {
+        var on = t === tab;
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+        var panel = document.getElementById(t.getAttribute('aria-controls'));
+        if (panel) panel.hidden = !on;
+      });
+      tab.focus();
+    }
+    tabs.forEach(function (t, i) {
+      t.addEventListener('click', function () { select(t); });
+      t.addEventListener('keydown', function (e) {
+        var d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+        if (!d) return;
+        e.preventDefault();
+        select(tabs[(i + d + tabs.length) % tabs.length]);
+      });
+    });
+  })();
+</script>
