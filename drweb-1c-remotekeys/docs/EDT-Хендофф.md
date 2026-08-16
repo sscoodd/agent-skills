@@ -1,20 +1,31 @@
 # Хендофф для сессии с EDT-стеком
 
-Инструкция для окружения, где установлен стек 1С (EDT и/или платформа). Цель —
-собрать из исходников этой папки готовую внешнюю обработку `DrWebRemoteKeys.epf`
-и вернуть в репозиторий XML-выгрузку (а по возможности и сам `.epf`).
+Инструкция для окружения, где установлен стек 1С (EDT и/или платформа) — Linux или
+Windows. Цель — собрать из исходников этой папки готовую внешнюю обработку
+`DrWebRemoteKeys.epf` и вернуть в репозиторий XML-выгрузку (а по возможности и сам `.epf`).
 
-Контекст проекта — [../README.md](../README.md). Дизайн формы — [Интерфейс.md](Интерфейс.md)
-и `Интерфейс-макет.html`. Список реквизитов — [СборкаОбработки.md](СборкаОбработки.md).
+Контекст проекта агент получает автоматически из [../CLAUDE.md](../CLAUDE.md). Дизайн
+формы — [Интерфейс.md](Интерфейс.md) и `Интерфейс-макет.html`. Список реквизитов —
+[СборкаОбработки.md](СборкаОбработки.md).
 
 ## Шаг 0. Проверка стека
+
+Linux/macOS/Git Bash:
 
 ```bash
 bash drweb-1c-remotekeys/tools/check-edt-stack.sh
 ```
 
-Скрипт ищет `java`, `1cedtcli`/`ring` (EDT) и `1cv8`/`1cv8c`/`ibcmd` (платформа) в PATH
-и типовых путях (`/opt/1C/1CE/components/...`, `/opt/1cv8/x86_64/...`) и печатает сводку.
+Windows (PowerShell):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File drweb-1c-remotekeys\tools\check-edt-stack.ps1
+```
+
+Скрипты ищут `java`, `1cedtcli`/`ring` (EDT) и `1cv8`/`1cv8c`/`ibcmd` (платформа) в PATH
+и типовых путях (`/opt/1C/1CE/...`, `/opt/1cv8/...`; на Windows —
+`C:\Program Files\1C\1CE\components\...`, `C:\Program Files\1cv8\<версия>\bin\...`)
+и печатают сводку `[OK]/[НЕТ]`; exit 1 — если компонентов 1С нет.
 
 ## Шаг 1. Создать обработку
 
@@ -38,7 +49,9 @@ bash drweb-1c-remotekeys/tools/check-edt-stack.sh
 1. Экспортировать обработку в XML (Designer-формат): EDT → «Экспорт конфигурации в
    XML» / `1cedtcli` export, либо Конфигуратор → «Выгрузить внешнюю обработку в файлы».
    Положить в `drweb-1c-remotekeys/build-src/DrWebRemoteKeys/`.
-2. Собрать `.epf` (нужна платформа):
+2. Собрать `.epf` (нужна платформа).
+
+Linux:
 
 ```bash
 # одноразово: пустая файловая ИБ для сборки
@@ -48,6 +61,18 @@ bash drweb-1c-remotekeys/tools/check-edt-stack.sh
   /LoadExternalDataProcessorOrReportFromFiles \
   drweb-1c-remotekeys/build-src/DrWebRemoteKeys/DrWebRemoteKeys.xml \
   drweb-1c-remotekeys/build/DrWebRemoteKeys.epf
+```
+
+Windows (PowerShell; путь к `1cv8.exe` подставить из вывода check-скрипта):
+
+```powershell
+$v8 = "C:\Program Files\1cv8\<версия>\bin\1cv8.exe"   # см. вывод check-edt-stack.ps1
+$ib = "$env:TEMP\build-ib"
+& $v8 CREATEINFOBASE "File=""$ib""" /DisableStartupDialogs
+& $v8 DESIGNER /F $ib /DisableStartupDialogs `
+  /LoadExternalDataProcessorOrReportFromFiles `
+  "drweb-1c-remotekeys\build-src\DrWebRemoteKeys\DrWebRemoteKeys.xml" `
+  "drweb-1c-remotekeys\build\DrWebRemoteKeys.epf"
 ```
 
 ## Шаг 3. Проверки перед коммитом
