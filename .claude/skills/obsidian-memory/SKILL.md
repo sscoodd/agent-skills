@@ -1,6 +1,6 @@
 ---
 name: obsidian-memory
-description: Protocol for using creator/obsidian-vault (a repo on the user's self-hosted Forgejo, address in $FORGEJO_URL; auth is injected by the cloud environment's API credential, never via a token variable) as Claude's long-term memory. Trigger when the user references past work ("my X project", "we decided Y", "remember that..."), asks Claude to remember/save/update/forget something, mentions a project by name (lotus-eletre, uspeak, homework-*, 1c-*, pcb-*, obsidian, claude-skills), or whenever a substantive insight, decision, or fact surfaces that's worth preserving between sessions. Also covers answering non-trivial project questions that benefit from previously stored context. Describes vault layout, frontmatter conventions, Forgejo REST API mechanics (read/list/search/create/update), naming rules, and write permissions. Do NOT trigger for simple one-off technical questions or casual chat that doesn't involve the user's ongoing projects or personal context.
+description: Protocol for using creator/obsidian-vault (a repo on the user's internal self-hosted Forgejo, address in $FORGEJO_URL; reachable from local Claude Code sessions with $FORGEJO_TOKEN, or from cloud sessions only via the environment's API credential if the instance is ever exposed) as Claude's long-term memory. Trigger when the user references past work ("my X project", "we decided Y", "remember that..."), asks Claude to remember/save/update/forget something, mentions a project by name (lotus-eletre, uspeak, homework-*, 1c-*, pcb-*, obsidian, claude-skills), or whenever a substantive insight, decision, or fact surfaces that's worth preserving between sessions. Also covers answering non-trivial project questions that benefit from previously stored context. Describes vault layout, frontmatter conventions, Forgejo REST API mechanics (read/list/search/create/update), naming rules, and write permissions. Do NOT trigger for simple one-off technical questions or casual chat that doesn't involve the user's ongoing projects or personal context.
 ---
 
 # obsidian-memory
@@ -8,55 +8,79 @@ description: Protocol for using creator/obsidian-vault (a repo on the user's sel
 Протокол работы с `creator/obsidian-vault` как долговременной памятью.
 Vault — обычный git-репо в Forgejo, хранит markdown-заметки с YAML-frontmatter.
 Claude читает и пишет заметки через Forgejo REST API.
+**Forgejo — внутренний сервис**, снаружи (из облачных сессий claude.ai) он
+недоступен. Рабочий режим — локальный Claude Code внутри сети пользователя.
 
 ## Where things live
 
 Адрес берётся **только из окружения**, в тексте скилла хост не хардкодится
 (прошлый хостинг умер, а ссылки на него ещё долго путали Claude).
-Токена в сессии **нет и быть не должно**: его подставляет agent proxy
-облачного окружения через API credential.
 
 | Переменная | Что | Дефолт |
 |---|---|---|
-| `FORGEJO_URL` | базовый URL инстанса, без завершающего `/` | нет, обязательна |
+| `FORGEJO_URL` | базовый URL инстанса, без завершающего `/`; внутри сети может быть и `http://host:3000` | нет, обязательна |
 | `FORGEJO_REPO` | `owner/repo` vault'а | `creator/obsidian-vault` |
 | `FORGEJO_BRANCH` | ветка | `main` |
+| `FORGEJO_TOKEN` | personal access token (read/write на repository). **Только для локального режима** | пусто → облачный режим |
 
-- **Access:** `bash_tool` + `curl` к `$FORGEJO_URL/api/v1/...` **без**
-  заголовка `Authorization`. Прокси добавит его сам, когда хост запроса
-  совпадает с хостом из API credential окружения.
-- **Не искать токен.** Не спрашивать у пользователя, не читать `~/.netrc`,
-  не подставлять переменные с токеном из прежних версий этого скилла.
-  Если авторизация не работает — это проблема настройки окружения,
-  см. Gotcha 6.
-- **Проверка в начале сессии:** если `FORGEJO_URL` пустой — не гадать
-  адрес и не пробовать старые хосты. Спросить у пользователя один раз,
-  дальше использовать в рамках сессии.
+### Два режима доступа
 
-### Как это настроено на стороне claude.ai (для пользователя)
+Режим выбирается по одному признаку: задан ли `FORGEJO_TOKEN`.
 
-Всё делается в диалоге облачного окружения: claude.ai/code → кнопка с
-облаком над полем ввода → шестерёнка у окружения → **Update cloud
-environment**.
+| | Локальный режим (основной) | Облачный режим (резервный) |
+|---|---|---|
+| Где запущен Claude Code | терминал / Desktop / Remote Control на машине **внутри сети** | сессия на claude.ai/code, контейнер Anthropic |
+| Виден ли Forgejo | да, напрямую | **нет** — сервис внутренний; режим сработает только если Forgejo когда-нибудь выставят наружу по HTTPS |
+| `FORGEJO_TOKEN` | задан | не задан и не нужен |
+| Заголовок `Authorization` | ставит сам скилл: `token $FORGEJO_TOKEN` | не ставит; его подставляет agent proxy через API credential окружения |
+| Где хранится токен | `~/.claude/settings.json` → `env`, или переменная оболочки | в API credential облачного окружения, в сессию не попадает |
 
-1. **Environment variables** (формат `.env`):
-   ```
-   FORGEJO_URL=https://<host>
-   FORGEJO_REPO=creator/obsidian-vault
-   ```
-2. **API credentials** (раздел ниже переменных, есть только у уже
-   созданного окружения на Pro/Max) → **Add credential**:
-   - Name: `Forgejo obsidian-vault`
-   - Allowed websites: `<host>` — ровно тот хост, что в `FORGEJO_URL`
-   - Credential type: Bearer; Custom headers: `Authorization`,
-     prefix `Bearer`, value — personal access token Forgejo с правами
-     read/write на repository. Forgejo принимает и `Bearer <tok>`,
-     и `token <tok>`, так что дефолтный префикс менять не нужно.
-   - **Connect**. Значение после сохранения не показывается; чтобы
-     сменить токен — удалить credential и создать заново.
-3. Сетевой allowlist настраивать не нужно: хост из API credential
-   доступен из сессии при любом уровне Network access.
-4. Изменения действуют только на новые сессии.
+**Как понять, где я.** Если в окружении есть `CCR_AGENT_PROXY_ENABLED=1`
+или `HTTPS_PROXY=http://127.0.0.1:...` — это облачная сессия. Если при
+этом `FORGEJO_TOKEN` не задан и Forgejo не отвечает — не гадать хосты, не
+перебирать порты, не искать токен. Сказать пользователю одной фразой:
+*«Forgejo внутренний, из облака недоступен — запусти сессию локально»*.
+
+**Правила для обоих режимов**
+
+- `bash_tool` + `curl` к `$FORGEJO_URL/api/v1/...`.
+- Если `FORGEJO_URL` пустой — не гадать адрес и не пробовать старые хосты.
+  Спросить у пользователя один раз, дальше использовать в рамках сессии.
+- Токен не спрашивать в чате и не читать из `~/.netrc`. Если он нужен —
+  пользователь кладёт его в `settings.json`, см. ниже.
+
+### Настройка локального режима (для пользователя)
+
+`~/.claude/settings.json` (не в репо!):
+
+```json
+{
+  "env": {
+    "FORGEJO_URL": "http://<внутренний-хост>:3000",
+    "FORGEJO_REPO": "creator/obsidian-vault",
+    "FORGEJO_TOKEN": "<personal access token>"
+  }
+}
+```
+
+Скилл подхватывается из `.claude/skills/obsidian-memory/` этого репо, так
+что Claude Code нужно запускать из его каталога, либо скопировать папку
+скилла в `~/.claude/skills/`.
+
+### Настройка облачного режима (на случай выставления Forgejo наружу)
+
+Только если инстанс доступен из интернета **по HTTPS** — облачный прокси
+не пропускает обычный HTTP вообще. Диалог окружения: claude.ai/code →
+кнопка с облаком над полем ввода → шестерёнка у окружения.
+
+1. **Environment variables:** `FORGEJO_URL=https://<host>`,
+   `FORGEJO_REPO=creator/obsidian-vault`. `FORGEJO_TOKEN` **не задавать**.
+2. **API credentials → Add credential:** Allowed websites — ровно хост из
+   `FORGEJO_URL` (с портом, если он нестандартный); заголовок
+   `Authorization`, префикс `Bearer`, значение — токен. Forgejo принимает
+   и `Bearer`, и `token`.
+3. Список разрешённых хостов фиксируется при старте сессии: после смены
+   credential нужна **новая** сессия.
 
 ## Vault layout
 
@@ -190,33 +214,37 @@ sources:                     # опционально: откуда знание
 REPO=${FORGEJO_REPO:-creator/obsidian-vault}
 BRANCH=${FORGEJO_BRANCH:-main}
 API="$FORGEJO_URL/api/v1"
-# Заголовок Authorization НЕ ставим: его добавляет agent proxy окружения.
 
-# Smoke test: доступен ли инстанс, репо и подставилась ли авторизация
-curl -sS -o /dev/null -w "%{http_code}\n" "$API/repos/$REPO"
-# 200 — всё ок; 401/403 — credential не подставился (Gotcha 6);
-# 404 — неверный FORGEJO_REPO или приватный репо без доступа
+# Авторизация: локально — заголовок из FORGEJO_TOKEN; в облаке — массив
+# пустой, заголовок добавит agent proxy окружения.
+AUTH=()
+[ -n "${FORGEJO_TOKEN:-}" ] && AUTH=(-H "Authorization: token $FORGEJO_TOKEN")
+
+# Smoke test: доступен ли инстанс, репо и работает ли авторизация
+curl -sS -m 15 "${AUTH[@]}" -o /dev/null -w "%{http_code}\n" "$API/repos/$REPO"
+# 200 — всё ок; 401/403 — авторизация (Gotcha 6); 404 — неверный FORGEJO_REPO;
+# 000 / "CONNECT tunnel failed" / "Could not resolve host" — хост недоступен (Gotcha 7)
 
 # ── READ ────────────────────────────────────────────────────────────────────
 
 # Прочитать файл (raw содержимое)
-curl -sS "$API/repos/$REPO/raw/claude/memory/facts.md?ref=$BRANCH"
+curl -sS "${AUTH[@]}" "$API/repos/$REPO/raw/claude/memory/facts.md?ref=$BRANCH"
 
 # Листинг папки (metadata всех файлов)
-curl -sS "$API/repos/$REPO/contents/claude/memory/projects?ref=$BRANCH" \
+curl -sS "${AUTH[@]}" "$API/repos/$REPO/contents/claude/memory/projects?ref=$BRANCH" \
   | python3 -c "import sys,json; [print(x['path'], x['size']) for x in json.load(sys.stdin)]"
 
 # Content-поиск (требует включённый code-индекс на уровне инстанса Forgejo)
-curl -sS "$API/repos/$REPO/search?q=eletre+alignment&type=code"
+curl -sS "${AUTH[@]}" "$API/repos/$REPO/search?q=eletre+alignment&type=code"
 
 # Tree (вся структура целиком с recursive)
-curl -sS "$API/repos/$REPO/git/trees/$BRANCH?recursive=true"
+curl -sS "${AUTH[@]}" "$API/repos/$REPO/git/trees/$BRANCH?recursive=true"
 
 # ── WRITE ───────────────────────────────────────────────────────────────────
 
 # Создать новый файл (POST contents). Содержимое — base64.
 content_b64=$(base64 -w0 note.md)
-curl -sS -X POST -H "Content-Type: application/json" \
+curl -sS -X POST "${AUTH[@]}" -H "Content-Type: application/json" \
   "$API/repos/$REPO/contents/claude/insights/2026-04-19-foo.md" \
   -d "{
     \"message\": \"claude: insight on X\",
@@ -225,10 +253,10 @@ curl -sS -X POST -H "Content-Type: application/json" \
   }"
 
 # Обновить существующий файл (PUT, нужен sha текущей версии)
-sha=$(curl -sS "$API/repos/$REPO/contents/claude/memory/facts.md?ref=$BRANCH" \
+sha=$(curl -sS "${AUTH[@]}" "$API/repos/$REPO/contents/claude/memory/facts.md?ref=$BRANCH" \
   | python3 -c "import sys,json; print(json.load(sys.stdin)['sha'])")
 content_b64=$(base64 -w0 facts-new.md)
-curl -sS -X PUT -H "Content-Type: application/json" \
+curl -sS -X PUT "${AUTH[@]}" -H "Content-Type: application/json" \
   "$API/repos/$REPO/contents/claude/memory/facts.md" \
   -d "{
     \"message\": \"claude: update facts — add Eletre calibration notes\",
@@ -238,7 +266,7 @@ curl -sS -X PUT -H "Content-Type: application/json" \
   }"
 
 # Batch (несколько файлов одним коммитом) — POST contents БЕЗ пути
-curl -sS -X POST -H "Content-Type: application/json" \
+curl -sS -X POST "${AUTH[@]}" -H "Content-Type: application/json" \
   "$API/repos/$REPO/contents" \
   -d "{
     \"branch\": \"$BRANCH\",
@@ -266,15 +294,17 @@ curl -sS -X POST -H "Content-Type: application/json" \
 5. **Rate limit.** По умолчанию Forgejo не агрессивен, но batch-операции
    предпочтительнее N одиночных запросов — один коммит лучше для истории
    и дешевле по HTTP.
-6. **401/403 от Forgejo.** Токен в сессии отсутствует по замыслу, поэтому
-   не пытаться его «найти» или запросить. Причина почти всегда в
-   API credential окружения: хост в **Allowed websites** не совпадает с
-   хостом `FORGEJO_URL` (порт и поддомен считаются), credential помечен
-   **Not sent**, или у токена нет прав на repository. Сказать
-   пользователю, что именно проверить в диалоге окружения.
-7. **Хост недоступен (DNS/timeout/HTTP 5xx).** Не подставлять другие
-   адреса по памяти и не искать «старый» инстанс — сообщить пользователю
-   и попросить актуальный `FORGEJO_URL`.
+6. **401/403 от Forgejo.** Локальный режим: токен в `FORGEJO_TOKEN`
+   протух или без прав на repository — попросить пользователя обновить его
+   в `settings.json`. Облачный режим: хост в **Allowed websites** не совпал
+   с `FORGEJO_URL`, credential помечен **Not sent**, или сессия стартовала
+   до его создания. В чате токен не запрашивать.
+7. **Хост недоступен** (`Could not resolve host`, `CONNECT tunnel failed,
+   response 403`, `Connection reset`, таймаут). В облачной сессии это
+   норма: Forgejo внутренний. Не перебирать хосты/порты, не искать
+   «старый» инстанс, не пытаться `http://` — облачный прокси его не
+   пропустит. Одна фраза пользователю: запускать сессию локально. Локально
+   — попросить проверить `FORGEJO_URL` и что машина в нужной сети/VPN.
 
 ## Commit message format
 
